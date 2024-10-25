@@ -1,0 +1,336 @@
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+local flying = false
+local bodyVelocity
+
+-- ESP Variables
+local runService = game:GetService("RunService")
+local espEnabled = false
+local playerHighlights = {}
+
+-- Function to create ESP for a player
+local function createESP(playerToHighlight)
+    if playerToHighlight.Character and playerToHighlight.Character:FindFirstChild("Head") then
+        -- Create a Highlight object
+        local highlight = Instance.new("Highlight")
+        highlight.Parent = playerToHighlight.Character
+        highlight.Adornee = playerToHighlight.Character
+        highlight.FillColor = Color3.fromRGB(0, 0, 255) -- Blue fill color
+        highlight.OutlineColor = Color3.fromRGB(0, 0, 0) -- Black outline color
+        highlight.FillTransparency = 0.5 -- Slightly transparent fill
+
+        -- Create BillboardGui for the name display
+        local billboardGui = Instance.new("BillboardGui")
+        billboardGui.Size = UDim2.new(0, 100, 0, 30) -- Adjusted size for smaller text
+        billboardGui.Adornee = playerToHighlight.Character.Head
+        billboardGui.StudsOffset = Vector3.new(0, 2, 0) -- Offset above the head
+        billboardGui.AlwaysOnTop = true
+
+        -- Create the name label
+        local nameLabel = Instance.new("TextLabel")
+        nameLabel.Size = UDim2.new(1, 0, 1, 0)
+        nameLabel.BackgroundTransparency = 1
+        nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255) -- White text color
+        nameLabel.Text = playerToHighlight.Name
+        nameLabel.TextScaled = true
+        nameLabel.TextSize = 16 -- Set text size for larger display
+        nameLabel.Parent = billboardGui
+
+        -- Parent the BillboardGui to the player’s head
+        billboardGui.Parent = playerToHighlight.Character.Head
+
+        -- Store the highlights for cleanup
+        playerHighlights[playerToHighlight] = {highlight = highlight, billboardGui = billboardGui}
+    end
+end
+
+-- Function to remove ESP for a player
+local function removeESP(playerToRemove)
+    if playerHighlights[playerToRemove] then
+        playerHighlights[playerToRemove].highlight:Destroy()
+        playerHighlights[playerToRemove].billboardGui:Destroy()
+        playerHighlights[playerToRemove] = nil
+    end
+end
+
+-- Function to refresh ESP for all players
+local function refreshESP()
+    -- Clear existing highlights and BillboardGuis
+    for playerToRemove, _ in pairs(playerHighlights) do
+        removeESP(playerToRemove)
+    end
+
+    -- Create ESP for all players
+    for _, playerToHighlight in pairs(game.Players:GetPlayers()) do
+        if playerToHighlight ~= player then
+            createESP(playerToHighlight)
+        end
+    end
+end
+
+-- Function to toggle ESP
+local function toggleESP()
+    espEnabled = not espEnabled
+
+    if espEnabled then
+        -- Start the refresh loop
+        runService.RenderStepped:Connect(function()
+            if espEnabled then
+                refreshESP()
+                wait(1) -- Refresh every second
+            end
+        end)
+
+        -- Listen for new players joining
+        game.Players.PlayerAdded:Connect(function(newPlayer)
+            newPlayer.CharacterAdded:Connect(function()
+                wait(1) -- Give time for the character to load
+                if espEnabled then
+                    createESP(newPlayer)
+                end
+            end)
+        end)
+
+        -- Remove ESP when players leave
+        game.Players.PlayerRemoving:Connect(removeESP)
+
+    else
+        -- Disable ESP
+        for _, v in pairs(playerHighlights) do
+            v.highlight:Destroy()
+            v.billboardGui:Destroy()
+        end
+        playerHighlights = {}
+    end
+end
+
+-- Function to toggle flying
+local function toggleFly()
+    flying = not flying
+    
+    if flying then
+        bodyVelocity = Instance.new("BodyVelocity")
+        bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+        bodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
+        bodyVelocity.Parent = humanoidRootPart
+    else
+        bodyVelocity:Destroy()
+        bodyVelocity = nil
+    end
+end
+
+-- Run service to update flying velocity
+runService.RenderStepped:Connect(function()
+    if flying and bodyVelocity then
+        local camera = workspace.CurrentCamera
+        bodyVelocity.Velocity = (camera.CFrame.LookVector * 50) + Vector3.new(0, 20, 0)  -- Adjust speed and height as needed
+    end
+end)
+
+-- Create the GUI
+local screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+local draggableFrame = Instance.new("Frame", screenGui)
+local titleBar = Instance.new("Frame", draggableFrame)
+local titleLabel = Instance.new("TextLabel", titleBar)
+local closeButton = Instance.new("TextButton", titleBar)
+local hideButton = Instance.new("TextButton", titleBar)
+local speedInput = Instance.new("TextBox", draggableFrame)
+local speedButton = Instance.new("TextButton", draggableFrame)
+local speedLabel = Instance.new("TextLabel", draggableFrame)
+local teleportInput = Instance.new("TextBox", draggableFrame)
+local teleportButton = Instance.new("TextButton", draggableFrame)
+local feedbackLabel = Instance.new("TextLabel", draggableFrame)
+local flyButton = Instance.new("TextButton", draggableFrame)  -- Fly button
+local espButton = Instance.new("TextButton", draggableFrame)  -- ESP button
+local openButton = Instance.new("TextButton", screenGui) -- Open button
+
+-- Frame properties
+draggableFrame.Size = UDim2.new(0, 250, 0, 400)
+draggableFrame.Position = UDim2.new(0.5, -125, 0.5, -200)
+draggableFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+
+-- Title bar properties
+titleBar.Size = UDim2.new(1, 0, 0, 30)
+titleBar.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+
+-- Title label properties
+titleLabel.Size = UDim2.new(0.4, 0, 1, 0) -- Adjusted width for the title label
+titleLabel.Text = "Harkkis Mod Menu"
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.BackgroundTransparency = 1
+
+-- Close button properties
+closeButton.Size = UDim2.new(0, 30, 0, 30)
+closeButton.Position = UDim2.new(1, -35, 0, 0) -- Positioned fully to the right
+closeButton.Text = "X"
+closeButton.TextColor3 = Color3.fromRGB(0, 0, 0) -- Changed text color to black
+closeButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+
+-- Hide button properties
+hideButton.Size = UDim2.new(0, 90, 0, 30)
+hideButton.Position = UDim2.new(1, -125, 0, 0) -- Positioned next to the close button
+hideButton.Text = "Hide"
+hideButton.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+
+-- Open button properties
+openButton.Size = UDim2.new(0, 170, 0, 50)
+openButton.Position = UDim2.new(0.5, -45, 0.9, -200)
+openButton.Text = "https://discord.gg/JhRgZUCkyD"
+openButton.BackgroundColor3 = Color3.fromRGB(0, 0, 255)
+openButton.Visible = false
+
+-- Speed input properties
+speedInput.Size = UDim2.new(0, 200, 0, 30)
+speedInput.Position = UDim2.new(0, 25, 0.1, 0)
+speedInput.PlaceholderText = "Enter Speed (0-10000)"
+speedInput.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+speedInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+-- Speed button properties
+speedButton.Size = UDim2.new(0, 90, 0, 30)
+speedButton.Position = UDim2.new(0.5, -45, 0.2, 0)
+speedButton.Text = "Set Speed"
+speedButton.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+
+-- Speed label properties
+speedLabel.Size = UDim2.new(1, 0, 0, 15)
+speedLabel.Position = UDim2.new(0, 0, 0.3, 0)
+speedLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+speedLabel.BackgroundTransparency = 1
+speedLabel.Text = "Current Speed: " .. humanoid.WalkSpeed
+
+-- Teleport input properties
+teleportInput.Size = UDim2.new(0, 200, 0, 30)
+teleportInput.Position = UDim2.new(0, 25, 0.35, 0)
+teleportInput.PlaceholderText = "Enter Player Name"
+teleportInput.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+teleportInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+-- Teleport button properties
+teleportButton.Size = UDim2.new(0, 90, 0, 30)
+teleportButton.Position = UDim2.new(0.5, -45, 0.45, 0)
+teleportButton.Text = "Teleport"
+teleportButton.BackgroundColor3 = Color3.fromRGB(0, 200, 255)
+
+-- Feedback label properties
+feedbackLabel.Size = UDim2.new(1, 0, 0, 15)
+feedbackLabel.Position = UDim2.new(0, 0, 0.8, 0)
+feedbackLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+feedbackLabel.BackgroundTransparency = 1
+feedbackLabel.Text = ""
+
+-- Fly button properties
+flyButton.Size = UDim2.new(0, 90, 0, 30)
+flyButton.Position = UDim2.new(0.5, -45, 0.60, 0)
+flyButton.Text = "Fly"
+flyButton.BackgroundColor3 = Color3.fromRGB(200, 0, 200)
+
+-- ESP button properties
+espButton.Size = UDim2.new(0, 90, 0, 30)
+espButton.Position = UDim2.new(0.5, -45, 0.69, 0)
+espButton.Text = "ESP"
+espButton.BackgroundColor3 = Color3.fromRGB(0, 200, 200)
+
+-- Dragging functionality for both mouse and touch
+local dragging = false
+local dragStart = nil
+local startPos = nil
+
+local function dragFrame(frame)
+    local inputTypes = {Enum.UserInputType.MouseButton1, Enum.UserInputType.Touch}
+
+    frame.InputBegan:Connect(function(input)
+        if table.find(inputTypes, input.UserInputType) then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    frame.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+-- Initialize dragging functionality
+dragFrame(draggableFrame)
+dragFrame(openButton)
+
+-- Toggle visibility of the GUI with the hide button
+hideButton.MouseButton1Click:Connect(function()
+    draggableFrame.Visible = not draggableFrame.Visible
+    openButton.Visible = not openButton.Visible
+end)
+
+-- Close the GUI completely with the close button
+closeButton.MouseButton1Click:Connect(function()
+    screenGui:Destroy()  -- Remove the entire GUI
+end)
+
+-- Show GUI when clicking the openButton
+openButton.MouseButton1Click:Connect(function()
+    draggableFrame.Visible = true
+    openButton.Visible = false
+end)
+
+-- Connect speed button click to set speed
+speedButton.MouseButton1Click:Connect(function()
+    local speedValue = tonumber(speedInput.Text)
+    if speedValue and speedValue >= 0 and speedValue <= 10000 then
+        humanoid.WalkSpeed = speedValue
+        speedLabel.Text = "Current Speed: " .. humanoid.WalkSpeed
+        feedbackLabel.Text = "Speed set to " .. speedValue
+    else
+        feedbackLabel.Text = "Invalid speed value!"
+    end
+end)
+
+-- Function to teleport to a player
+local function teleportToPlayer(targetName)
+    local targetPlayer = game.Players:FindFirstChild(targetName)
+    if targetPlayer and targetPlayer.Character then
+        local targetHumanoidRootPart = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if targetHumanoidRootPart then
+            humanoidRootPart.CFrame = targetHumanoidRootPart.CFrame  -- Teleport to the target player's position
+            feedbackLabel.Text = "Teleported to " .. targetName
+        else
+            feedbackLabel.Text = "Target does not have a HumanoidRootPart!"
+        end
+    else
+        feedbackLabel.Text = "Player not found!"
+    end
+end
+
+-- Connect teleport button click to teleport to the specified player
+teleportButton.MouseButton1Click:Connect(function()
+    local targetName = teleportInput.Text
+    teleportToPlayer(targetName)
+end)
+
+-- Connect fly button click to toggle flying
+flyButton.MouseButton1Click:Connect(function()
+    toggleFly()
+end)
+
+-- Connect ESP button click to toggle ESP
+espButton.MouseButton1Click:Connect(function()
+    toggleESP()
+end)
+
+-- User input service for toggling fly with 'F' key
+game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == Enum.KeyCode.F then
+        toggleFly()
+    end
+end)
